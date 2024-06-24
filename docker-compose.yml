@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  database:
+    restart: always
+    image: postgres:15.7
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    environment:
+      POSTGRES_DB: test-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d test-db"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
+    networks:
+      app-net:
+        aliases:
+          - database
+    logging:
+      driver: 'json-file'
+      options:
+        max-file: '2'
+        max-size: 20m
+
+  app:
+    restart: always
+    container_name: app
+    deploy:
+      resources:
+        limits:
+          memory: 100M
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DB_URI: postgresql://postgres:password@database:5432/test-db
+      DB_LOGGING: false
+#    env_file:
+#      - development.env
+    networks:
+      app-net:
+    ports:
+      - 3000:3000
+    depends_on:
+      database:
+        condition: service_healthy
+    logging:
+      driver: 'json-file'
+      options:
+        max-file: '2'
+        max-size: 20m
+
+networks:
+  app-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
